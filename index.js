@@ -1,20 +1,49 @@
 const express = require('express');
-const { randomUUID } = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const cors = require('cors');
 const morgan = require('morgan');
+const crypto = require('crypto');
 
 const app = express();
 
 // ---------- Middleware ----------
 app.use(express.json());
-app.use(cors());             // allow frontend or other origins
-app.use(morgan('dev'));      // log each request
+app.use(cors());
+app.use(morgan('dev'));
 
 // Serve static frontend at /app
 const PUBLIC_DIR = path.join(__dirname, 'public');
 app.use('/app', express.static(PUBLIC_DIR));
+
+// ---------- ID / Code helpers ----------
+const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/1/O/I
+
+function makeId() {
+  // Prefer crypto.randomUUID if available
+  if (typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  // Fallback for older Node versions
+  return crypto.randomBytes(16).toString('hex');
+}
+
+function generateGroupCode(existingCodes = new Set()) {
+  function randomCode() {
+    let code = 'SANTA-';
+    for (let i = 0; i < 6; i++) {
+      const idx = Math.floor(Math.random() * CODE_CHARS.length);
+      code += CODE_CHARS[idx];
+    }
+    return code;
+  }
+
+  let code;
+  do {
+    code = randomCode();
+  } while (existingCodes.has(code));
+  return code;
+}
 
 // ---------- File-based "database" ----------
 const DATA_DIR = path.join(__dirname, 'data');
@@ -57,25 +86,6 @@ function saveGroupsToFile(groups) {
   }
 }
 
-// Short code generator (for human-friendly IDs)
-const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/1/O/I
-function generateGroupCode(existingCodes = new Set()) {
-  function randomCode() {
-    let code = 'SANTA-';
-    for (let i = 0; i < 6; i++) {
-      const idx = Math.floor(Math.random() * CODE_CHARS.length);
-      code += CODE_CHARS[idx];
-    }
-    return code;
-  }
-
-  let code;
-  do {
-    code = randomCode();
-  } while (existingCodes.has(code));
-  return code;
-}
-
 let groups = loadGroupsFromFile();
 
 // Ensure each loaded group has a short code
@@ -103,10 +113,7 @@ let groups = loadGroupsFromFile();
 
 // Helper: support both UUID id and code in URLs
 function getGroupByIdOrCode(idOrCode) {
-  // First try direct key (UUID style)
   if (groups[idOrCode]) return groups[idOrCode];
-
-  // Then try matching code
   return Object.values(groups).find((g) => g.code === idOrCode) || null;
 }
 
@@ -154,7 +161,7 @@ app.get('/', (req, res) => {
   res.send('Santa API running with Express 🎅 (Frontend at /app)');
 });
 
-// List all groups (basic info)
+// List all groups
 app.get('/api/groups', (req, res) => {
   const groupList = Object.values(groups).map((g) => ({
     id: g.id,
@@ -168,7 +175,7 @@ app.get('/api/groups', (req, res) => {
   res.json({ groups: groupList });
 });
 
-// Create a group
+// Create group
 app.post('/api/groups', (req, res) => {
   const { groupName, organizerName, organizerEmail, participants } = req.body;
 
@@ -185,7 +192,7 @@ app.post('/api/groups', (req, res) => {
   }
 
   const participantList = participants.map((p) => ({
-    id: randomUUID(),
+    id: makeId(),
     name: p.name,
     email: p.email || '',
   }));
@@ -197,7 +204,7 @@ app.post('/api/groups', (req, res) => {
     return res.status(500).json({ error: err.message });
   }
 
-  const groupId = randomUUID();
+  const groupId = makeId();
   const existingCodes = new Set(Object.values(groups).map((g) => g.code));
   const groupCode = generateGroupCode(existingCodes);
   const createdAt = new Date().toISOString();
@@ -236,7 +243,7 @@ app.post('/api/groups', (req, res) => {
   });
 });
 
-// Organizer view (by id OR code)
+// Organizer view
 app.get('/api/groups/:id', (req, res) => {
   const { id } = req.params;
   const group = getGroupByIdOrCode(id);
@@ -263,7 +270,7 @@ app.get('/api/groups/:id', (req, res) => {
   });
 });
 
-// Participant view (by id OR code)
+// Participant view
 app.get('/api/groups/:id/participant/:participantId', (req, res) => {
   const { id, participantId } = req.params;
   const group = getGroupByIdOrCode(id);
@@ -301,10 +308,42 @@ app.get('/api/groups/:id/participant/:participantId', (req, res) => {
   });
 });
 
+// Regenerate assignments
+app.post('/api/groups/:id/regenerate', (req, res) => {
+  const { id } = req.params;
+  const group = getGroupByIdOrCode(id);
+
+  if (!group) {
+    return res.status(404).json({ error: 'Group not found.' });
+  }
+
+  if (group.participants.length < 2) {
+    return res.status(400).json({
+      error: 'At least 2 participants are required to regenerate assignments.',
+    });
+  }
+
+  let newAssignments;
+  try {
+    newAssignments = createAssignments(group.participants);
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+
+  group.assignments = newAssignments;
+  saveGroupsToFile(groups);
+
+  return res.json({
+    message: 'Assignments regenerated successfully.',
+    groupId: group.id,
+    groupCode: group.code,
+    assignments: newAssignments,
+  });
+});
+
 // ---------- Start server ----------
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Express server running at http://localhost:${PORT}`);
   console.log(`Frontend available at http://localhost:${PORT}/app`);
 });
-
