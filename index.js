@@ -243,7 +243,7 @@ app.post('/api/groups', (req, res) => {
   });
 });
 
-// Organizer view
+// Organizer view (JSON)
 app.get('/api/groups/:id', (req, res) => {
   const { id } = req.params;
   const group = getGroupByIdOrCode(id);
@@ -270,42 +270,114 @@ app.get('/api/groups/:id', (req, res) => {
   });
 });
 
-// Participant view
+// Participant view – HTML "You got X" page
 app.get('/api/groups/:id/participant/:participantId', (req, res) => {
   const { id, participantId } = req.params;
   const group = getGroupByIdOrCode(id);
 
   if (!group) {
-    return res.status(404).json({ error: 'Group not found.' });
+    return res.status(404).send('<h1>Group not found.</h1>');
   }
 
   const participant = group.participants.find((p) => p.id === participantId);
   if (!participant) {
-    return res.status(404).json({ error: 'Participant not found in this group.' });
+    return res.status(404).send('<h1>Participant not found in this group.</h1>');
   }
 
   const assignment = group.assignments.find((a) => a.giverId === participantId);
   if (!assignment) {
-    return res.status(500).json({ error: 'Assignment not found for this participant.' });
+    return res.status(500).send('<h1>Assignment not found for this participant.</h1>');
   }
 
   const receiver = group.participants.find((p) => p.id === assignment.receiverId);
+  if (!receiver) {
+    return res.status(500).send('<h1>Assigned person not found.</h1>');
+  }
 
-  return res.json({
-    groupId: group.id,
-    groupCode: group.code,
-    groupName: group.groupName,
-    you: {
-      id: participant.id,
-      name: participant.name,
-      email: participant.email,
-    },
-    yourAssignment: {
-      id: receiver.id,
-      name: receiver.name,
-      email: receiver.email,
-    },
-  });
+  const title = `Who did you get? – ${group.groupName}`;
+  const youName = participant.name || 'You';
+  const receiverName = receiver.name || 'Someone special';
+
+  const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>${title}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #fee2e2, #f1f5f9);
+      min-height: 100vh;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .card {
+      background: #ffffff;
+      border-radius: 16px;
+      padding: 2rem 2.5rem;
+      box-shadow: 0 10px 30px rgba(15,23,42,0.15);
+      max-width: 480px;
+      text-align: center;
+    }
+    h1 {
+      font-size: 1.8rem;
+      margin-bottom: 0.5rem;
+    }
+    h2 {
+      font-size: 1.4rem;
+      margin-top: 0.25rem;
+      color: #4b5563;
+    }
+    .name {
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: #b91c1c;
+      margin: 1.25rem 0 0.75rem;
+    }
+    .note {
+      font-size: 0.95rem;
+      color: #6b7280;
+      margin-bottom: 1rem;
+    }
+    .group {
+      font-size: 0.9rem;
+      color: #9ca3af;
+      margin-top: 0.75rem;
+    }
+    .tag {
+      display: inline-block;
+      margin-top: 0.5rem;
+      background: #fee2e2;
+      color: #b91c1c;
+      padding: 0.2rem 0.6rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>🎅 Secret Santa Result</h1>
+    <h2>Hi ${youName}!</h2>
+    <div class="name">You got <span>${receiverName}</span> 🎁</div>
+    <p class="note">Don't tell anyone – keep it a secret!</p>
+    <div class="group">
+      Group: <strong>${group.groupName}</strong><br/>
+      Code: <code>${group.code}</code>
+    </div>
+    <div class="tag">Share this page link only with yourself</div>
+  </div>
+</body>
+</html>
+  `.trim();
+
+  res.send(html);
 });
 
 // Regenerate assignments
