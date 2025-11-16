@@ -1,0 +1,22 @@
+{
+  "name": "santa-api",
+  "version": "1.1.0",
+  "description": "Secret Santa API with frontend, short codes, file persistence, and participant/organizer views.",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "keywords": [
+    "secret-santa",
+    "express",
+    "api",
+    "node"
+  ],
+  "author": "Josh White",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "morgan": "^1.10.0"
+  }
+}
