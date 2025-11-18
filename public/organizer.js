@@ -15,6 +15,8 @@ async function loadGroups() {
     if (!groups.length) {
       groupsEmptyEl.style.display = 'block';
       groupsListEl.innerHTML = '';
+      groupDetailsEl.innerHTML = 'No groups yet. Create one at /app.';
+      groupDetailsEl.classList.add('muted');
       return;
     }
 
@@ -35,7 +37,7 @@ function renderGroupList() {
     div.className = 'group-item' + (g.id === activeGroupId ? ' active' : '');
     div.innerHTML = `
       <strong>${g.groupName}</strong>
-      <small>Organizer: ${g.organizerName} (${g.organizerEmail})</small><br/>
+      <small>${g.organizerName} (${g.organizerEmail})</small>
       <small>Code: <code>${g.code}</code></small>
     `;
     div.addEventListener('click', () => {
@@ -47,7 +49,7 @@ function renderGroupList() {
   });
 }
 
-// Load a single group's details using its code (works with ID or code)
+// Load a single group's details using its code (or id)
 async function loadGroupDetails(codeOrId) {
   groupDetailsEl.classList.add('muted');
   groupDetailsEl.innerHTML = 'Loading group details...';
@@ -97,9 +99,14 @@ function renderGroupDetails(group) {
       <p><strong>Organizer:</strong> ${group.organizerName} (${group.organizerEmail})</p>
       <p><strong>Code:</strong> <code>${group.code}</code></p>
 
-      <div class="links">
+      <div class="links" style="margin-bottom: 0.75rem;">
         <a href="${organizerUrl}" target="_blank">Organizer JSON</a>
       </div>
+
+      <button id="sendEmailsBtn">Send emails to participants</button>
+      <p class="muted" style="font-size: 0.8rem; margin-top: 0.25rem;">
+        Only participants with an email address will receive a message.
+      </p>
 
       <h4>Participants &amp; Assignments</h4>
       <table>
@@ -117,6 +124,42 @@ function renderGroupDetails(group) {
       </table>
     </div>
   `;
+
+  const sendBtn = document.getElementById('sendEmailsBtn');
+  if (sendBtn) {
+    sendBtn.addEventListener('click', () => handleSendEmails(group));
+  }
+}
+
+async function handleSendEmails(group) {
+  const sendBtn = document.getElementById('sendEmailsBtn');
+  if (!sendBtn) return;
+
+  sendBtn.disabled = true;
+  const originalText = sendBtn.textContent;
+  sendBtn.textContent = 'Sending emails...';
+
+  try {
+    const res = await fetch(`/api/groups/${encodeURIComponent(group.code)}/send-emails`, {
+      method: 'POST'
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      alert('Failed to send emails: ' + (data.error || 'Unknown error'));
+      console.error('Email send error:', data);
+      return;
+    }
+
+    alert(`Emails processed. Sent: ${data.sentCount}, skipped (no email): ${data.skippedCount}.`);
+  } catch (err) {
+    console.error('Failed to send emails:', err);
+    alert('Failed to send emails. Check console for details.');
+  } finally {
+    sendBtn.disabled = false;
+    sendBtn.textContent = originalText;
+  }
 }
 
 // Initial load

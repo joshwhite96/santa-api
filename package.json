@@ -1,7 +1,7 @@
 {
   "name": "santa-api",
-  "version": "1.1.0",
-  "description": "Secret Santa API with frontend, short codes, file persistence, and participant/organizer views.",
+  "version": "1.3.0",
+  "description": "Secret Santa API with frontend, short codes, file persistence, email sending, and organizer dashboard.",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
@@ -19,7 +19,10 @@
   },
   "dependencies": {
     "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
     "express": "^4.18.2",
-    "morgan": "^1.10.0"
+    "morgan": "^1.10.1",
+    "pg": "^8.16.3",
+    "resend": "^4.8.0"
   }
 }
