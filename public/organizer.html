@@ -2,125 +2,209 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Santa API – Organizer Dashboard</title>
+  <title>Who Did I Get? – Organizer Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
+    * {
+      box-sizing: border-box;
+    }
     body {
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       margin: 0;
-      min-height: 100vh;
-      display: flex;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       background: #f1f5f9;
+      color: #0f172a;
+      display: flex;
+      min-height: 100vh;
     }
     .sidebar {
       width: 260px;
       background: #0f172a;
-      color: white;
-      padding: 1.25rem;
-      box-sizing: border-box;
+      color: #e5e7eb;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
     }
     .sidebar h1 {
-      font-size: 1.2rem;
-      margin: 0 0 0.75rem;
+      font-size: 1.1rem;
+      margin: 0;
     }
-    .sidebar p {
+    .sidebar small {
+      font-size: 0.75rem;
+      color: #9ca3af;
+    }
+    .groups-empty {
       font-size: 0.85rem;
-      color: #94a3b8;
-      margin: 0 0 1rem;
+      color: #9ca3af;
+      margin-top: 0.5rem;
     }
-    .group-list {
-      max-height: calc(100vh - 140px);
+    .groups-list {
+      margin-top: 0.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
       overflow-y: auto;
+      max-height: calc(100vh - 4rem);
     }
     .group-item {
-      padding: 0.5rem 0.6rem;
-      border-radius: 0.4rem;
+      padding: 0.4rem 0.5rem;
+      border-radius: 0.5rem;
       cursor: pointer;
-      margin-bottom: 0.25rem;
+      background: rgba(148, 163, 184, 0.08);
+      border: 1px solid transparent;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .group-item strong {
+      display: block;
       font-size: 0.85rem;
     }
     .group-item small {
       display: block;
-      color: #cbd5f5;
+      font-size: 0.75rem;
+      color: #e5e7eb;
     }
     .group-item code {
-      font-size: 0.8rem;
+      font-size: 0.7rem;
     }
     .group-item:hover {
-      background: rgba(148, 163, 184, 0.2);
+      background: rgba(148, 163, 184, 0.18);
     }
     .group-item.active {
-      background: #1e293b;
+      border-color: #f97316;
+      background: rgba(249, 115, 22, 0.1);
     }
+
     .main {
       flex: 1;
-      padding: 1.5rem 2rem;
-      box-sizing: border-box;
+      padding: 1.25rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
     }
-    h2 {
-      margin-top: 0;
+    .main-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 0.5rem;
     }
+    .main-header h2 {
+      margin: 0;
+      font-size: 1.3rem;
+    }
+    .main-header a {
+      font-size: 0.85rem;
+      color: #2563eb;
+      text-decoration: none;
+    }
+    .main-header a:hover {
+      text-decoration: underline;
+    }
+
+    .panel {
+      background: #ffffff;
+      border-radius: 0.75rem;
+      padding: 1rem 1.25rem;
+      box-shadow: 0 10px 25px rgba(15, 23, 42, 0.08);
+    }
+
+    h4 {
+      margin: 0.75rem 0 0.4rem;
+      font-size: 1rem;
+    }
+
     .muted {
       color: #6b7280;
-      font-size: 0.9rem;
-    }
-    .card {
-      background: white;
-      border-radius: 0.75rem;
-      padding: 1.25rem 1.5rem;
-      box-shadow: 0 10px 25px rgba(15, 23, 42, 0.1);
-    }
-    .links a {
       font-size: 0.85rem;
-      margin-right: 0.75rem;
     }
+
+    button {
+      background: #b91c1c;
+      border: none;
+      color: #fff7ed;
+      padding: 0.4rem 0.9rem;
+      border-radius: 999px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+    button:hover {
+      background: #991b1b;
+    }
+
     table {
       width: 100%;
       border-collapse: collapse;
-      margin-top: 1rem;
-      font-size: 0.9rem;
+      margin-top: 0.75rem;
+      font-size: 0.85rem;
     }
     th, td {
       border-bottom: 1px solid #e5e7eb;
-      padding: 0.4rem 0.3rem;
+      padding: 0.35rem 0.4rem;
       text-align: left;
+      vertical-align: middle;
     }
-    th {
-      background: #f9fafb;
-      font-weight: 600;
-      font-size: 0.8rem;
+    thead th {
+      font-size: 0.75rem;
       text-transform: uppercase;
-      letter-spacing: 0.03em;
+      color: #6b7280;
+      letter-spacing: 0.04em;
     }
-    button {
-      border: none;
-      border-radius: 999px;
-      padding: 0.4rem 0.9rem;
-      font-size: 0.85rem;
-      cursor: pointer;
-      background: #b91c1c;
-      color: white;
-      margin-top: 0.4rem;
+    input[type="text"],
+    input[type="email"] {
+      width: 100%;
+      padding: 0.25rem 0.35rem;
+      border-radius: 0.35rem;
+      border: 1px solid #e5e7eb;
+      font-size: 0.8rem;
     }
-    button:disabled {
-      opacity: 0.6;
-      cursor: default;
+    input[type="text"]:focus,
+    input[type="email"]:focus {
+      outline: none;
+      border-color: #2563eb;
+      box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.2);
+    }
+
+    @media (max-width: 800px) {
+      body {
+        flex-direction: column;
+      }
+      .sidebar {
+        width: 100%;
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .groups-list {
+        max-height: 220px;
+      }
     }
   </style>
 </head>
 <body>
   <aside class="sidebar">
-    <h1>Organizer Dashboard</h1>
-    <p>Click a group to see assignments, links, and send emails.</p>
-    <div id="groups-empty" class="muted">No groups yet. Create one at <code>/app</code>.</div>
-    <div id="groups-list" class="group-list"></div>
+    <div>
+      <h1>Who Did I Get?</h1>
+      <small>Organizer dashboard</small>
+    </div>
+
+    <div id="groups-empty" class="groups-empty" style="display:none;">
+      No groups yet. Create one at <code>/app</code>.
+    </div>
+
+    <div id="groups-list" class="groups-list"></div>
   </aside>
 
   <main class="main">
-    <h2>Group Details</h2>
-    <div id="group-details" class="card muted">
-      Select a group from the left to view details.
+    <div class="main-header">
+      <h2>Group details</h2>
+      <a href="/app">← Back to group creator</a>
     </div>
+
+    <section id="group-details" class="panel">
+      <p class="muted">Select a group from the left to view and edit details.</p>
+    </section>
   </main>
 
   <script src="organizer.js" defer></script>
