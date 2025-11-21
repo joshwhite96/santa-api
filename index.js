@@ -105,6 +105,12 @@ function createAssignments(participants) {
   }));
 }
 
+// small delay helper for throttling emails
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// throttled email sender
 async function sendParticipantEmailsForGroup(group, baseUrl) {
   if (!resend || !SENDER_EMAIL) {
     throw new Error('Email sending is not configured. Missing RESEND_API_KEY or SENDER_EMAIL.');
@@ -121,37 +127,36 @@ async function sendParticipantEmailsForGroup(group, baseUrl) {
 
     const participantUrl = `${baseUrl}/api/groups/${group.code}/participant/${p.id}`;
 
-    const { error } = await resend.emails.send({
-      from: SENDER_EMAIL,
-      to: p.email,
-      subject: `Your Secret Santa assignment for ${group.groupName}`,
-      text: [
-        `Hi ${p.name || 'there'},`,
-        '',
-        `Your Secret Santa group "${group.groupName}" is ready!`,
-        '',
-        `Click this link to see who you got:`,
-        participantUrl,
-        '',
-        `Please keep it a secret 🎅`,
-      ].join('\n'),
-      html: `
-        <p>Hi ${p.name || 'there'},</p>
-        <p>Your Secret Santa group <strong>${group.groupName}</strong> is ready!</p>
-        <p>
-          Click this link to see who you got:<br/>
-          <a href="${participantUrl}" target="_blank">${participantUrl}</a>
-        </p>
-        <p>Please keep it a secret 🎅</p>
-      `
-    });
+    try {
+      const { error } = await resend.emails.send({
+        from: SENDER_EMAIL,
+        to: p.email,
+        subject: `Your Secret Santa assignment for ${group.groupName}`,
+        text: [
+          `Hi ${p.name || 'there'},`,
+          ``,
+          `Your Secret Santa group "${group.groupName}" is ready!`,
+          ``,
+          `Click this link to see who you got:`,
+          participantUrl,
+          ``,
+          `Please keep it a secret 🎅`,
+        ].join('\n'),
+      });
 
-    if (error) {
-      console.error('Resend error for', p.email, error);
+      if (error) {
+        console.error('Resend error for', p.email, error);
+        continue;
+      }
+
+      sentCount++;
+    } catch (err) {
+      console.error(`Error sending email to ${p.email}:`, err);
       continue;
     }
 
-    sentCount++;
+    // throttle: wait 250ms between each email
+    await wait(250);
   }
 
   return { sentCount, skippedCount };
@@ -841,11 +846,9 @@ app.put('/api/groups/:id/participants', async (req, res) => {
 
       await client.query('BEGIN');
 
-      // Clear existing participants + assignments
       await client.query('delete from assignments where group_id = $1', [groupId]);
       await client.query('delete from participants where group_id = $1', [groupId]);
 
-      // Insert new participants
       const participantList = [];
       for (const p of cleaned) {
         const r = await client.query(
@@ -859,7 +862,6 @@ app.put('/api/groups/:id/participants', async (req, res) => {
         participantList.push(r.rows[0]);
       }
 
-      // New assignments
       const assignments = createAssignments(participantList);
 
       for (const a of assignments) {
@@ -987,7 +989,7 @@ app.delete('/api/groups/:id', async (req, res) => {
   }
 });
 
-// Send emails to participants
+// Send emails to participants (throttled)
 app.post('/api/groups/:id/send-emails', async (req, res) => {
   const { id } = req.params;
 
@@ -1020,7 +1022,7 @@ app.post('/api/groups/:id/send-emails', async (req, res) => {
     );
 
     return res.json({
-      message: 'Emails processed.',
+      message: 'Emails processed (throttled).',
       sentCount,
       skippedCount
     });
